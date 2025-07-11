@@ -24,7 +24,7 @@ export default function SidebarHome() {
         aria-label="Sidebar"
       >
         <div className="relative flex flex-col h-full">
-          <header className="p-4 flex justify-between items-center gap-x-2">
+          <header className="p-4 mt-1 ml-1 flex justify-between items-center gap-x-2">
             <a
               className="flex-none font-semibold text-xl text-black dark:text-white"
               href="#"
@@ -35,12 +35,12 @@ export default function SidebarHome() {
           </header>
 
           <nav className="flex-1 overflow-y-auto">
-            <div className="pb-0 px-2 w-full flex flex-col flex-wrap">
+            <div className="p-2 w-full flex flex-col flex-wrap">
               <ul className="space-y-1">
                 {menuItems.map((item) => (
                   <li key={item.name}>
                     <a
-                      className={`w-full flex items-center gap-x-3.5 py-2 mb-3 px-2.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 ${
+                      className={`w-full flex items-center gap-x-3.5 p-2.5 text-base rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 ${
                         activeItem === item.name
                           ? "bg-gray-100 dark:bg-neutral-700"
                           : ""
