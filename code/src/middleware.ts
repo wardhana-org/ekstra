@@ -11,7 +11,7 @@ export default auth((req) => {
 
   // If user is authenticated redirect to /home
   if (req.auth && isPublicRoute) {
-    return Response.redirect(new URL("/home", req.nextUrl.origin));
+    return Response.redirect(new URL("/user/home", req.nextUrl.origin));
   }
 
   // If user is not authenticated redirect to /login

@@ -65,7 +65,9 @@ export const creatorPages = createTable(
       .varchar({ length: 255 })
       .notNull()
       .references(() => users.id),
-    pageUrl: d
+    description: d
+      .varchar({ length: 255 }),
+    pageHandle: d
       .varchar({ length: 1024 }).notNull().unique(), // user created
     profileImage: d
       .varchar({ length: 255 }), // default image should be taken from user profile image
@@ -78,8 +80,135 @@ export const creatorPages = createTable(
   }),
   (t) =>[
     index("creator_page_user_id_idx").on(t.userId),
+    index("creator_page_id_idx").on(t.id),
   ]
 );
+
+export const contents = createTable(
+  "content",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    creatorId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => creatorPages.id),
+    type: d // video, image, file, etc.
+      .varchar({ length: 100})
+      .notNull(),
+    contentUrl: d // upload thing
+      .varchar({ length: 1024 }).notNull(),
+    usedIn: d
+      .varchar({ length: 25 }),
+  	createdAt: d
+			.timestamp({ withTimezone: true })
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+
+  ]
+)
+
+export const storeListings = createTable (
+  "storeListing",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    title: d
+      .varchar({ length: 255 }).notNull(),
+    price: d
+      .numeric({ precision: 10, scale: 2 })
+      .notNull(),
+    creatorId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => creatorPages.id),
+  	createdAt: d
+			.timestamp({ withTimezone: true })
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+
+  ]
+)
+
+export const storeContents = createTable(
+  "storeContent",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    contentId: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => contents.id),
+    storeListingId: d
+      .varchar({ length: 255 })
+			.notNull()
+			.references(() => storeListings.id),
+  })
+)
+
+export const posts = createTable(
+  "post",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    title: d
+      .varchar({ length: 255 }).notNull(),
+    description: d
+      .varchar({ length: 255 }),
+    creatorId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => creatorPages.id),
+    createdAt: d
+			.timestamp({ withTimezone: true })
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+
+  ]
+)
+
+export const postContents = createTable(
+  "postContent",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+		contentId: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => contents.id),
+    postId: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => posts.id),
+  }),
+  (t) => [
+
+  ]
+)
 
 export const memberships = createTable(
   "membership",
@@ -93,11 +222,18 @@ export const memberships = createTable(
       .varchar({ length: 255 })
       .notNull()
       .references(() => creatorPages.id),
-    name: d
+    title: d
       .varchar({ length: 255 }).notNull(),
+    description: d
+      .varchar({ length: 255 }),
     price: d
       .numeric({ precision: 10, scale: 2 })
       .notNull(),
+    createdAt: d
+			.timestamp({ withTimezone: true })
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),   
   }),
   (t) => [
 
@@ -112,23 +248,14 @@ export const membershipContents = createTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-		name: d.varchar({ length: 256 }),
-		createdById: d
+		contentId: d
 			.varchar({ length: 255 })
 			.notNull()
-			.references(() => users.id),
+			.references(() => contents.id),
     membershipId: d
       .varchar({ length: 255 })
 			.notNull()
 			.references(() => memberships.id),
-    type: d
-      .varchar({ length: 100})
-      .notNull(),
-		createdAt: d
-			.timestamp({ withTimezone: true })
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
 	}),
 	(t) => [
     
@@ -136,10 +263,6 @@ export const membershipContents = createTable(
 );
 
 // auth
-export const usersRelations = relations(users, ({ many }) => ({
-	accounts: many(accounts),
-}));
-
 export const accounts = createTable(
 	"account",
 	(d) => ({
@@ -194,3 +317,89 @@ export const verificationTokens = createTable(
 	}),
 	(t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
+
+// relations
+export const usersRelations = relations(users, ({ many, one }) => ({
+	accounts: many(accounts),
+  session: one(sessions),
+  creatorPage: one(creatorPages),
+}));
+
+export const creatorPagesRelations = relations(creatorPages, ({ many, one }) => ({
+  users: one(users, {
+    fields: [creatorPages.userId],
+    references: [users.id],
+  }),
+  contents: many(contents),
+  storeListings: many(storeListings),
+  posts: many(posts),
+  memberships: many(memberships),
+}));
+
+export const contentsRelations = relations(contents, ({ one, many }) => ({
+  creator: one(creatorPages, {
+    fields: [contents.creatorId],
+    references: [creatorPages.id],
+  }),
+  storeContents: many(storeContents),
+  postContents: many(postContents),
+  membershipContents: many(membershipContents),
+}));
+
+export const storeListingsRelations = relations(storeListings, ({ one, many }) => ({
+  creator: one(creatorPages, {
+    fields: [storeListings.creatorId],
+    references: [creatorPages.id],
+  }),
+  storeContents: many(storeContents),
+}));
+
+export const storeContentsRelations = relations(storeContents, ({ one }) => ({
+  content: one(contents, {
+    fields: [storeContents.contentId],
+    references: [contents.id],
+  }),
+  storeListing: one(storeListings, {
+    fields: [storeContents.storeListingId],
+    references: [storeListings.id],
+  }),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  creator: one(creatorPages, {
+    fields: [posts.creatorId],
+    references: [creatorPages.id],
+  }),
+  postContents: many(postContents),
+}));
+
+export const postContentsRelations = relations(postContents, ({ one }) => ({
+  post: one(posts, {
+    fields: [postContents.postId],
+    references: [posts.id],
+  }),
+  content: one(contents, {
+    fields: [postContents.contentId],
+    references: [contents.id],
+  }),
+}));
+
+export const membershipsRelations = relations(memberships, ({ one, many }) => ({
+  creator: one(creatorPages, {
+    fields: [memberships.creatorId],
+    references: [creatorPages.id],
+  }),
+  membershipContents: many(membershipContents),
+}));
+
+export const membershipContentsRelations = relations(membershipContents, ({ one }) => ({
+  membership: one(memberships, {
+    fields: [membershipContents.membershipId],
+    references: [memberships.id],
+  }),
+  content: one(contents, {
+    fields: [membershipContents.contentId],
+    references: [contents.id],
+  }),
+}));
+

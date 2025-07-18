@@ -8,10 +8,10 @@ export interface MenuItem {
 
 export const menuItems: MenuItem[] = [
   {
-    name: "Home",
+    name: "Dashboard",
     icon: (
       <svg 
-        className="size-5 lucide lucide-house-icon lucide-house" 
+        className="size-5 lucide lucide-layout-dashboard-icon lucide-layout-dashboard" 
         xmlns="http://www.w3.org/2000/svg" 
         width="32" 
         height="32" 
@@ -20,19 +20,21 @@ export const menuItems: MenuItem[] = [
         stroke="currentColor" 
         strokeWidth="2" 
         strokeLinecap="round" 
-        strokeLinejoin="round"
+        strokeLinejoin="round" 
       >
-        <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/>
-        <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <rect width="7" height="9" x="3" y="3" rx="1"/>
+        <rect width="7" height="5" x="14" y="3" rx="1"/>
+        <rect width="7" height="9" x="14" y="12" rx="1"/>
+        <rect width="7" height="5" x="3" y="16" rx="1"/>
       </svg>
     ),
-    href: "/user/home"
+    href: "/creator/dashboard/home"
   },
   {
-    name: "Explore",
+    name: "Members",
     icon: (
-      <svg
-        className="size-5 lucide lucide-search-icon lucide-search"
+      <svg 
+        className="size-5 lucide lucide-users-icon lucide-users"
         xmlns="http://www.w3.org/2000/svg" 
         width="32" 
         height="32" 
@@ -40,14 +42,41 @@ export const menuItems: MenuItem[] = [
         fill="none" 
         stroke="currentColor" 
         strokeWidth="2" 
-        strokeLinecap="round"  
-        strokeLinejoin="round"
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
       >
-        <path d="m21 21-4.34-4.34"/>
-        <circle cx="11" cy="11" r="8"/>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <path d="M16 3.128a4 4 0 0 1 0 7.744"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <circle cx="9" cy="7" r="4"/>
       </svg>
     ),
-    href: "/user/explore"
+    href: "/creator/members"
+  },
+  {
+    name: "Analytics",
+    icon: (
+      <svg 
+        className="size-5 lucide lucide-chart-no-axes-combined-icon lucide-chart-no-axes-combined"
+        xmlns="http://www.w3.org/2000/svg" 
+        width="32" 
+        height="32" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+      >
+        <path d="M12 16v5"/>
+        <path d="M16 14v7"/>
+        <path d="M20 10v11"/>
+        <path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/>
+        <path d="M4 18v3"/>
+        <path d="M8 14v7"/>
+      </svg>
+    ),
+    href: "/creator/analytics"
   },
   {
     name: "Settings",
@@ -75,6 +104,6 @@ export const menuItems: MenuItem[] = [
         <circle cx="12" cy="12" r="3"/>
       </svg>
     ),
-    href: "/user/settings"
+    href: "/creator/settings"
   }
 ];

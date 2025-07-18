@@ -9,6 +9,7 @@ import {
 	users,
 	verificationTokens,
 } from "~/server/db/schema";
+import { eq } from "drizzle-orm";
 
 
 /**
@@ -22,7 +23,7 @@ declare module "next-auth" {
 		user: {
 			id: string;
       role: string;
-      creatorId: string | null;
+      creatorPageId: string | null;
 			// ...other properties
 			// role: UserRole;
 		} & DefaultSession["user"];
@@ -61,6 +62,13 @@ export const authConfig = {
 		verificationTokensTable: verificationTokens,
 	}),
 	callbacks: {
+    // one session per user check
+    async signIn({ user }) {
+      if (user?.id) {
+        await db.delete(sessions).where(eq(sessions.userId, user.id));
+      }
+      return true;
+    },
 		session: async ({ session, user }) => ({
       ...session,
       user: {

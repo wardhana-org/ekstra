@@ -1,3 +1,5 @@
+"use client"
+
 import { useRef } from 'react';
 import { signOut } from "next-auth/react";
 import { useSession } from "next-auth/react";
@@ -12,10 +14,10 @@ export default function AccountDropdown() {
   const { data: session } = useSession();
   const userName = session?.user?.name;
   const userImage = session?.user?.image ?? "https://www.gravatar.com/avatar/?d=mp";
-  const creatorPageId = session?.user?.creatorId;
+  const creatorPageId = session?.user?.creatorPageId;
 
   const dropDownItemStyle = 
-    "block px-4 py-2 text-sm text-gray-800 dark:text-neutral-200 hover:bg-gray-100 dark:hover:bg-neutral-700 w-full text-left cursor-pointer"
+    "block px-4 py-2 text-sm text-neutral-200 hover:bg-gray-100 hover:bg-neutral-700 w-full text-left cursor-pointer"
 
   useClickOutside({
     refs: [dropdownRef, buttonRef],
@@ -32,7 +34,7 @@ export default function AccountDropdown() {
           e.stopPropagation();
           setIsDropdownOpen(!isDropdownOpen);
         }}
-        className="w-full flex items-center gap-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors duration-200 hover:cursor-pointer"
+        className="w-full flex items-center gap-x-3 p-2 rounded-lg hover:bg-neutral-700 transition-colors duration-200 cursor-pointer"
         aria-expanded={isDropdownOpen}
         aria-label="Account menu"
       >
@@ -40,12 +42,13 @@ export default function AccountDropdown() {
           className="w-8 h-8 rounded-full" 
           src={userImage} 
           alt="User avatar"
+          referrerPolicy="no-referrer"
         />
         <div className="text-left">
-          <p className="text-sm font-medium text-gray-800 dark:text-neutral-200">{userName}</p>
+          <p className="text-sm font-medium text-neutral-200">{userName}</p>
         </div>
         <svg 
-          className={`ml-auto h-4 w-4 text-gray-500 dark:text-neutral-400 transition-transform duration-200 ${
+          className={`ml-auto h-4 w-4 text-neutral-400 transition-transform duration-200 ${
             isDropdownOpen ? 'rotate-180' : ''
           }`}
           xmlns="http://www.w3.org/2000/svg" 
@@ -62,17 +65,17 @@ export default function AccountDropdown() {
       </button>
       
       {isDropdownOpen && (
-        <div ref={dropdownRef} className="absolute bottom-full left-0 mb-2 w-full bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-gray-200 dark:border-neutral-700 overflow-hidden z-10">
+        <div ref={dropdownRef} className="absolute bottom-full left-0 mb-2 w-full bg-neutral-800 rounded-lg shadow-lg border border-neutral-700 overflow-hidden z-10">
           {/* Options depending on user creator status */}
             {!creatorPageId && (
               <a 
-                href="/creator/setup" className={dropDownItemStyle}>
+                href="/creatorsetup" className={dropDownItemStyle}>
                 Create on Ekstra
               </a>
             )}
             {creatorPageId && (
               <a 
-                href={`/creator/${creatorPageId}/dashboard`} 
+                href="/creator/dashboard/home"
                 className={dropDownItemStyle}
               >
                 Creator Dashboard
@@ -84,12 +87,6 @@ export default function AccountDropdown() {
             className={dropDownItemStyle}
           >
             Profile
-          </a>
-          <a 
-            href="#" 
-            className={dropDownItemStyle}
-          >
-            Settings
           </a>
           <button
             onClick={() => signOut({ redirectTo: "/" })}
