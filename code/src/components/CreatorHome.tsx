@@ -1,35 +1,24 @@
+"use client"
+
+import { useRouter } from 'next/navigation';
 import ContentRenderer from "./ContentRenderer";
 
-export default function CreatorHome() {
-  const posts = [
-    { 
-      id: 1, 
-      title: 'First Post', 
-      content: [
-      {
-        type: 'image',
-        url: 'https://utfs.io/f/...',
-        title:'image.png',
-        size: '1.2 MB'
-      },
-      {
-        type: 'video',
-        url: 'https://utfs.io/f/...',
-        title: 'video.mp4',
-        size: '5.4 MB',
-      },
-      {
-        type: 'document',
-        url: 'https://utfs.io/f/...',
-        title: 'Project Notes.pdf',
-        size: '2.4 MB'
-      }
-    ],
-      description: "This is your first post. You can edit it or create new posts to share with your subscribers. The description provides a preview of your post content.", 
-      membership: ['Gold Tier'],
-      createdAt: 'June 15, 2025'
-    },
-  ];
+interface contentInfo {
+  key: string,
+  type: string,
+}
+
+interface PostInfo {
+  id: string,
+  title: string,
+  content: contentInfo[],
+  description: string,
+  membership: string[],
+  createdAt: string,
+}
+
+export default function CreatorHome({posts} :{posts: PostInfo[]}) {
+  const router = useRouter();
 
   return (
     <div className="w-full p-4">
@@ -37,7 +26,10 @@ export default function CreatorHome() {
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-white">Your Posts</h2>
         
-        <button className="px-4 py-2 text-sm bg-white text-black rounded-lg hover:bg-gray-200 flex items-center justify-center transition-colors cursor-pointer">
+        <button 
+          className="px-4 py-2 text-sm bg-white text-black rounded-lg hover:bg-gray-200 flex items-center justify-center transition-colors cursor-pointer"
+          onClick={() => router.push('/creator/dashboard/createpost')}
+        >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
           </svg>
@@ -60,7 +52,7 @@ export default function CreatorHome() {
 
               {/* Post content  */}
               {post.content && post.content.length > 0 && (
-                <ContentRenderer contentItem={post.content} />
+                <ContentRenderer content={post.content} />
               )}
               
               {post.description && (

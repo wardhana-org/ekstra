@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { submitCreatorPage, checkHandleUnique } from '~/server/actions';
-import { useEffect } from 'react';
+import { redirect } from 'next/navigation';
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -22,32 +22,10 @@ export default function CreateCreatorPageForm() {
     handleSubmit,
     formState: { errors, isValid },
     setError,
-    clearErrors,
-    watch,
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: 'onChange'
   });
-
-  const handleValue = watch("handle");
-
-  useEffect(() => {
-    const delay = setTimeout(async () => {
-      if (handleValue.length >= 3) {
-        const available = await checkHandleUnique(handleValue);
-        if (!available) {
-          setError("handle", {
-            type: "manual",
-            message: "This handle is already taken",
-          });
-        } else {
-          clearErrors("handle");
-        }
-      }
-    }, 500); // debounce delay
-
-    return () => clearTimeout(delay);
-  }, [handleValue]);
 
   const onSubmit = async (data: FormValues) => {
     const available = await checkHandleUnique(data.handle);
@@ -60,6 +38,7 @@ export default function CreateCreatorPageForm() {
     }
 
     await submitCreatorPage(data);
+    redirect('creator/dashboard/home')
   };
 
   return (

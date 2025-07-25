@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "~/server/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import * as schema from "~/server/db/schema";
 
 // session data query
@@ -12,6 +12,7 @@ export async function getCreatorId(userId: string) {
   return creatorPage?.id ?? null;
 }
 
+// creator queries
 // check handle availability
 export async function isHandleAvailable(handle: string) {
   const existing = await db.query.creatorPages.findFirst({
@@ -21,7 +22,7 @@ export async function isHandleAvailable(handle: string) {
 }
 
 // create creator page form queries
-export async function createCreatorPage(
+export async function createMyCreatorPage(
   data: {
     name: string;
     handle: string;
@@ -77,6 +78,106 @@ export async function getMyCreatorDropdownData(
   return creatorDropdownData;
 }
 
+export async function createMyMembershipTier( data: {
+  title: string;
+  price: number;
+  description: string;
+  creatorPageId: string;
+
+}) {
+  const newMembershipTier = 
+    await db.insert(schema.memberships).values({
+      creatorPageId: data.creatorPageId,
+      title: data.title,
+      description: data.description,
+      price: sql`${data.price}::numeric(10,2)`
+    });
+  return newMembershipTier
+}
+
+export async function getMyMembershipTiers(data: {
+  creatorPageId : string
+} ) {
+  const myMembershipTiers =
+    await db.select({
+      id: schema.memberships.id,
+      title: schema.memberships.title,
+      description: schema.memberships.description,
+      price: schema.memberships.price,
+    })
+    .from(schema.memberships)
+    .where(eq(schema.memberships.creatorPageId, data.creatorPageId))
+  return myMembershipTiers
+}
+
+export async function createMyContent(data: {
+  creatorPageId: string,
+  type: string,
+  contentKey: string,
+  usedIn: string,
+}) {
+  const myContent =
+    await db.insert(schema.contents).values({
+      creatorPageId: data.creatorPageId,
+      type: data.type,
+      contentKey: data.contentKey,
+      usedIn: data.usedIn
+    }).returning({ id: schema.contents.id });
+  return myContent
+}
+
+export async function createMyPost(data: {
+  title: string,
+  description: string,
+  creatorPageId: string,
+}) {
+  const myPost = 
+    await db.insert(schema.posts).values({
+      title: data.title,
+      description: data.description,
+      creatorPageId: data.creatorPageId,
+    }).returning({ id: schema.posts.id });
+  return myPost
+}
+
+export async function createMyPostContent (
+  postId: string,
+  contentId: string
+) {
+  const myPostContent =
+    await db.insert(schema.postContents).values({
+      contentId: contentId,
+      postId: postId
+    }).returning({ id: schema.postContents.id });
+  return myPostContent
+}
+
+export async function createMyMembershipExclusivePost( data: {
+  postId: string,
+  membershipId: string,
+}) {
+  const membershipExclusivePost =
+    await db.insert(schema.membershipContents).values({
+      postId: data.postId,
+      membershipId: data.membershipId,
+    }).returning({ id: schema.membershipContents.id });
+  return membershipExclusivePost
+}
+
+export async function getMyMembershipName( data : {
+  creatorPageId : string
+}) {
+  const myMembershipNames =
+    await db.select({
+      id: schema.memberships.id,
+      title: schema.memberships.title,
+    })
+    .from(schema.memberships)
+    .where(eq(schema.memberships.creatorPageId, data.creatorPageId))
+  return myMembershipNames
+}
+
+// app queries
 // images queries
 export async function getBackground() {
   const backgroundImages = await db.query.appImages.findMany({

@@ -42,6 +42,7 @@ export default function CreatorAccountDropdown({ creatorDropdownData }: { creato
         className="w-8 h-8 rounded-full" 
         src={creatorDropdownData?.[0]?.profileImage || "https://www.gravatar.com/avatar/?d=mp"}
         alt="Page avatar"
+        referrerPolicy="no-referrer"
       />
 
       <div className="text-left">
