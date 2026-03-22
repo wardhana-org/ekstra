@@ -1,4 +1,4 @@
-module backend
+module github.com/wardhana-org/ekstra/backend
 
 go 1.26.1
 
