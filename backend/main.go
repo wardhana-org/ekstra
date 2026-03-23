@@ -1,13 +1,19 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"fmt"
+
+	"github.com/gin-gonic/gin"
+	controller "github.com/wardhana-org/ekstra/backend/controllers"
+)
 
 func main() {
 	router := gin.Default()
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-	router.Run() // listens on 0.0.0.0:8080 by default
+
+	router.GET("/ping", controller.Ping)
+
+	if err := router.Run(":8080"); err != nil {
+		fmt.Println("Failed to start server", err)
+	}
+
 }
