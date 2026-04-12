@@ -9,7 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func dbInstance() *pgxpool.Pool {
+func DatabaseInstance() *pgxpool.Pool {
 	err := godotenv.Load(".env")
 
 	if err != nil {
