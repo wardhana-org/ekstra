@@ -4,55 +4,74 @@
 erDiagram
     users {
         bigint id PK
+        string email
+        string username
+        string password_hash
+        string status
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    platforms {
+        bigint id PK
+        bigint owner_user_id FK
+        string name
+        string slug
+        text description
+        boolean is_public
+        string status
+        timestamp created_at
+        timestamp updated_at
     }
 
     rbac_roles {
         bigint id PK
         string name
         string code
+        string scope_type
+        timestamp created_at
+        timestamp updated_at
     }
 
     rbac_permissions {
         bigint id PK
         string name
         string code
+        timestamp created_at
+        timestamp updated_at
     }
 
-    rbac_modules {
+    rbac_role_permissions {
         bigint id PK
-        string name
-        string code
+        bigint role_id FK
+        bigint permission_id FK
+        timestamp created_at
     }
 
     rbac_user_roles {
+        bigint id PK
         bigint user_id FK
         bigint role_id FK
+        timestamp created_at
     }
 
-    rbac_user_permissions {
+    platform_operators {
+        bigint id PK
         bigint user_id FK
-        bigint permission_id FK
-    }
-
-    rbac_role_modules {
+        bigint platform_id FK
         bigint role_id FK
-        bigint module_id FK
+        timestamp created_at
     }
 
-    rbac_module_permissions {
-        bigint module_id FK
-        bigint permission_id FK
-    }
-
+    users ||--o{ platforms : owns
     users ||--o{ rbac_user_roles : has
+    users ||--o{ platform_operators : operates
+
+    platforms ||--o{ platform_operators : has
+
     rbac_roles ||--o{ rbac_user_roles : assigned_to
+    rbac_roles ||--o{ platform_operators : assigned_to
+    rbac_roles ||--o{ rbac_role_permissions : has
 
-    users ||--o{ rbac_user_permissions : has
-    rbac_permissions ||--o{ rbac_user_permissions : assigned_to
-
-    rbac_roles ||--o{ rbac_role_modules : has
-    rbac_modules ||--o{ rbac_role_modules : assigned_to
-
-    rbac_modules ||--o{ rbac_module_permissions : contains
-    rbac_permissions ||--o{ rbac_module_permissions : included_in
+    rbac_permissions ||--o{ rbac_role_permissions : included_in
 ```
