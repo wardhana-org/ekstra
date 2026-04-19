@@ -1,4 +1,4 @@
-# RBAC Schema
+# Schema Design
 
 ```mermaid
 erDiagram
