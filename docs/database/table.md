@@ -6,8 +6,17 @@ erDiagram
         bigint id PK
         string email
         string username
-        string password_hash
         string status
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    user_auth_providers {
+        bigint id PK
+        bigint user_id FK
+        string provider
+        string provider_user_id
+        string password_hash
         timestamp created_at
         timestamp updated_at
     }
@@ -63,6 +72,7 @@ erDiagram
         timestamp created_at
     }
 
+    users ||--o{ user_auth_providers : authenticates_with
     users ||--o{ platforms : owns
     users ||--o{ rbac_user_roles : has
     users ||--o{ platform_operators : operates
