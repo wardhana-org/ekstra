@@ -1,1 +1,37 @@
+# Environment
 .env
+.env.*
+!.env.example
+
+# Go build outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+build/
+dist/
+
+# Go workspace/vendor artifacts
+vendor/
+go.work
+go.work.sum
+
+# Test and coverage output
+coverage.out
+coverage.html
+*.coverprofile
+
+# Logs
+*.log
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
