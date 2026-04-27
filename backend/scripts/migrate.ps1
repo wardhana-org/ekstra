@@ -8,15 +8,21 @@ if (Test-Path $envFile) {
     }
 }
 
-$databaseUrl = $env:DATABASE_URL
-if (-not $databaseUrl) {
-    $databaseUrl = $env:DB_URL
+$required = @("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME")
+
+foreach ($name in $required) {
+    if (-not (Get-Item "env:$name" -ErrorAction SilentlyContinue)) {
+        Write-Error "$name is required"
+        exit 1
+    }
 }
 
-if (-not $databaseUrl) {
-    Write-Error "DATABASE_URL or DB_URL is required"
-    exit 1
+$sslMode = $env:DB_SSLMODE
+if (-not $sslMode) {
+    $sslMode = "disable"
 }
+
+$databaseUrl = "postgres://$($env:DB_USER):$($env:DB_PASSWORD)@$($env:DB_HOST):$($env:DB_PORT)/$($env:DB_NAME)?sslmode=$sslMode"
 
 $command = $args[0]
 $value = $args[1]

@@ -7,5 +7,6 @@ import (
 )
 
 func Register(router *gin.Engine, db *pgxpool.Pool) {
-	router.GET("/ping", handlers.Ping(db))
+	router.GET("/live", handlers.Live())
+	router.GET("/ready", handlers.Ready(db))
 }
