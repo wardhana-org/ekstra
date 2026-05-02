@@ -28,6 +28,10 @@ coverage.html
 # Logs
 *.log
 
+# Local reference projects
+api_sample/
+fullstack_sample/
+
 # Editor and OS files
 .idea/
 .vscode/
