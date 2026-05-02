@@ -21,6 +21,29 @@ erDiagram
         timestamp updated_at
     }
 
+    auth_sessions {
+        bigint id PK
+        bigint user_id FK
+        string client_type
+        string device_name
+        text user_agent
+        text ip_address
+        timestamp created_at
+        timestamp last_seen_at
+        timestamp expires_at
+        timestamp revoked_at
+    }
+
+    auth_tokens {
+        bigint id PK
+        bigint session_id FK
+        text token_hash
+        string token_type
+        timestamp created_at
+        timestamp expires_at
+        timestamp revoked_at
+    }
+
     platforms {
         bigint id PK
         bigint owner_user_id FK
@@ -73,9 +96,12 @@ erDiagram
     }
 
     users ||--o{ user_auth_providers : authenticates_with
+    users ||--o{ auth_sessions : signs_in_with
     users ||--o{ platforms : owns
     users ||--o{ rbac_user_roles : has
     users ||--o{ platform_operators : operates
+
+    auth_sessions ||--o{ auth_tokens : issues
 
     platforms ||--o{ platform_operators : has
 
