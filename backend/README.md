@@ -87,18 +87,19 @@ It should not:
 
 Feature-specific database queries should eventually live in a repository package, not in `internal/database`.
 
-## `internal/routes`
+## Route Registration
 
-The routes package maps HTTP paths and methods to handlers.
+For now, routes are registered directly in `cmd/api/main.go` so application wiring stays visible while the backend is still small.
 
 Example responsibility:
 
 ```go
 router.GET("/live", handlers.Live())
 router.GET("/ready", handlers.Ready(db))
+router.POST("/auth/login", authHandler.Login)
 ```
 
-It is responsible for:
+Route registration is responsible for:
 
 - Defining API endpoint paths.
 - Grouping related endpoints.
@@ -112,7 +113,7 @@ It should not:
 - Contain business logic.
 - Return JSON responses directly except for very rare cases.
 
-Routes answer: "Which handler should run for this HTTP request?"
+Route registration answers: "Which handler should run for this HTTP request?"
 
 ## `internal/handlers`
 
@@ -281,8 +282,8 @@ The migration script should use the same environment variable contract as the AP
 
 ## General Rules
 
-- Keep `main.go` small.
-- Keep route registration in `internal/routes`.
+- Keep `main.go` readable.
+- Keep route registration in `cmd/api/main.go` while the backend is small.
 - Keep HTTP request/response logic in `internal/handlers`.
 - Keep database connection setup in `internal/database`.
 - Keep table/domain structs in `internal/models`.

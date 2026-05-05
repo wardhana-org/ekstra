@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	AppEnv      string
 	DatabaseURL string
 	Port        string
 }
@@ -26,12 +27,18 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	appEnv := os.Getenv("APP_ENV")
+	if appEnv == "" {
+		appEnv = "local"
+	}
+
 	port := os.Getenv("APP_PORT")
 	if port == "" {
 		port = "8080"
 	}
 
 	var config *Config = &Config{
+		AppEnv:      appEnv,
 		DatabaseURL: databaseURL,
 		Port:        port,
 	}
