@@ -42,12 +42,12 @@ func main() {
 	authService := services.NewAuthService(userRepository, authRepository)
 
 	// create handlers
-	authHandler := handlers.NewAuthHandler(authService, authCookieConfig)
+	webAuthHandler := handlers.NewWebAuthHandler(authService, authCookieConfig)
 
 	// register routes
 	router.GET("/live", handlers.Live())
 	router.GET("/ready", handlers.Ready(db))
-	router.POST("/auth/login", authHandler.Login)
+	router.POST("/auth/login", webAuthHandler.Login)
 
 	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatal("failed to start server: ", err)

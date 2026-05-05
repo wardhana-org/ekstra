@@ -96,7 +96,7 @@ Example responsibility:
 ```go
 router.GET("/live", handlers.Live())
 router.GET("/ready", handlers.Ready(db))
-router.POST("/auth/login", authHandler.Login)
+router.POST("/auth/login", webAuthHandler.Login)
 ```
 
 Route registration is responsible for:

@@ -31,12 +31,12 @@ func DefaultAuthCookieConfig() AuthCookieConfig {
 	}
 }
 
-type AuthHandler struct {
+type WebAuthHandler struct {
 	authService *services.AuthService
 	cookies     AuthCookieConfig
 }
 
-func NewAuthHandler(authService *services.AuthService, cookies AuthCookieConfig) *AuthHandler {
+func NewWebAuthHandler(authService *services.AuthService, cookies AuthCookieConfig) *WebAuthHandler {
 	if cookies.AccessTokenName == "" {
 		cookies.AccessTokenName = defaultAccessTokenCookieName
 	}
@@ -47,7 +47,7 @@ func NewAuthHandler(authService *services.AuthService, cookies AuthCookieConfig)
 		cookies.SameSite = http.SameSiteLaxMode
 	}
 
-	return &AuthHandler{
+	return &WebAuthHandler{
 		authService: authService,
 		cookies:     cookies,
 	}
@@ -69,7 +69,7 @@ type UserResponse struct {
 	Status   string `json:"status"`
 }
 
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *WebAuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -122,7 +122,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
-func (h *AuthHandler) setAuthCookie(c *gin.Context, name string, value string, expiresAt time.Time) {
+func (h *WebAuthHandler) setAuthCookie(c *gin.Context, name string, value string, expiresAt time.Time) {
 	maxAge := int(time.Until(expiresAt).Seconds())
 	if maxAge < 0 {
 		maxAge = 0
