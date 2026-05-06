@@ -48,6 +48,7 @@ func main() {
 	router.GET("/live", handlers.Live())
 	router.GET("/ready", handlers.Ready(db))
 	router.POST("/auth/login", webAuthHandler.Login)
+	router.POST("/auth/register", webAuthHandler.Register)
 
 	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatal("failed to start server: ", err)

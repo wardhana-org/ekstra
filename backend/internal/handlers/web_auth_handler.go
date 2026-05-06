@@ -156,3 +156,16 @@ func optionalString(value string) *string {
 
 	return &value
 }
+
+type RegisterRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+type RegisterResponse struct {
+	User UserResponse `json:"user"`
+}
+
+func (h *WebAuthHandler) Register(c *gin.Context) {
+
+}
