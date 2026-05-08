@@ -11,12 +11,6 @@ import (
 	"github.com/wardhana-org/ekstra/backend/internal/repository"
 )
 
-var (
-	ErrEmailRequired      = errors.New("email is required")
-	ErrPasswordRequired   = errors.New("password is required")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
-
 const (
 	defaultClientType = "web"
 	tokenTypeAccess   = "access"
