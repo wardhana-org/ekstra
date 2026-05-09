@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/wardhana-org/ekstra/backend/internal/auth"
 	"github.com/wardhana-org/ekstra/backend/internal/models"
@@ -18,6 +19,9 @@ const (
 
 	accessTokenTTL  = 15 * time.Minute
 	refreshTokenTTL = 30 * 24 * time.Hour
+
+	minPasswordLength = 12
+	maxPasswordBytes  = 1024
 )
 
 type AuthService struct {
@@ -174,6 +178,18 @@ type RegisterResult struct {
 	RefreshTokenExpiresAt time.Time
 }
 
+func validatePasswordStrength(password string) error {
+	if utf8.RuneCountInString(password) < minPasswordLength {
+		return ErrPasswordTooShort
+	}
+
+	if len(password) > maxPasswordBytes {
+		return ErrPasswordTooLong
+	}
+
+	return nil
+}
+
 func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*RegisterResult, error) {
 	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
 	if input.Email == "" {
@@ -200,5 +216,9 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*Regis
 
 	if !credentialCheck.UsernameAvailable {
 		return nil, ErrRegisterExistingUsername
+	}
+
+	if err := validatePasswordStrength(input.Password); err != nil {
+		return nil, err
 	}
 }
