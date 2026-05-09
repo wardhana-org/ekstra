@@ -82,9 +82,9 @@ func (h *WebAuthHandler) Login(c *gin.Context) {
 	userAgent := optionalString(c.GetHeader("User-Agent"))
 	clientIP := optionalString(c.ClientIP())
 
-	result, err := h.authService.Login(
+	result, err := h.authService.LoginWithPassword(
 		c.Request.Context(),
-		services.LoginInput{
+		services.PasswordLoginInput{
 			Email:      req.Email,
 			Password:   req.Password,
 			ClientType: "web",
@@ -167,5 +167,14 @@ type RegisterResponse struct {
 }
 
 func (h *WebAuthHandler) Register(c *gin.Context) {
+	var req RegisterRequest
 
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid request",
+		})
+		return
+	}
+
+	result, err := h.authService.Register(c.Request.Context())
 }

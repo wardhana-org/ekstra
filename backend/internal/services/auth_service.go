@@ -32,7 +32,7 @@ func NewAuthService(users *repository.UserRepository, sessions *repository.AuthR
 	}
 }
 
-type LoginInput struct {
+type PasswordLoginInput struct {
 	Email      string
 	Password   string
 	ClientType string
@@ -49,7 +49,15 @@ type LoginResult struct {
 	RefreshTokenExpiresAt time.Time
 }
 
-func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult, error) {
+type userSessionInput struct {
+	User       *models.User
+	ClientType string
+	DeviceName *string
+	UserAgent  *string
+	IPAddress  *string
+}
+
+func (s *AuthService) LoginWithPassword(ctx context.Context, input PasswordLoginInput) (*LoginResult, error) {
 	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
 	if input.Email == "" {
 		return nil, ErrEmailRequired
@@ -85,6 +93,16 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 		return nil, ErrInvalidCredentials
 	}
 
+	return s.createUserSession(ctx, userSessionInput{
+		User:       user,
+		ClientType: input.ClientType,
+		DeviceName: input.DeviceName,
+		UserAgent:  input.UserAgent,
+		IPAddress:  input.IPAddress,
+	})
+}
+
+func (s *AuthService) createUserSession(ctx context.Context, input userSessionInput) (*LoginResult, error) {
 	accessToken, err := auth.GenerateRawToken()
 	if err != nil {
 		return nil, err
@@ -105,7 +123,7 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 
 	_, _, err = s.sessions.CreateSessionWithTokens(ctx, repository.CreateSessionWithTokensInput{
 		Session: repository.CreateSessionInput{
-			UserID:     user.ID,
+			UserID:     input.User.ID,
 			ClientType: clientType,
 			DeviceName: input.DeviceName,
 			UserAgent:  input.UserAgent,
@@ -130,10 +148,57 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 	}
 
 	return &LoginResult{
-		User:                  user,
+		User:                  input.User,
 		AccessToken:           accessToken,
 		RefreshToken:          refreshToken,
 		AccessTokenExpiresAt:  accessTokenExpiresAt,
 		RefreshTokenExpiresAt: refreshTokenExpiresAt,
 	}, nil
+}
+
+type RegisterInput struct {
+	Email      string
+	Username   string
+	Password   string
+	ClientType string
+	DeviceName *string
+	UserAgent  *string
+	IPAddress  *string
+}
+
+type RegisterResult struct {
+	User                  *models.User
+	AccessToken           string
+	RefreshToken          string
+	AccessTokenExpiresAt  time.Time
+	RefreshTokenExpiresAt time.Time
+}
+
+func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*RegisterResult, error) {
+	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
+	if input.Email == "" {
+		return nil, ErrEmailRequired
+	}
+
+	if input.Username == "" {
+		return nil, ErrUsernameRequired
+	}
+
+	if input.Password == "" {
+		return nil, ErrPasswordRequired
+	}
+
+	// check credential availability
+	credentialCheck, err := s.users.CheckCredentialAvailability(ctx, input.Email, input.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	if !credentialCheck.EmailAvailable {
+		return nil, ErrRegisterExistingEmail
+	}
+
+	if !credentialCheck.UsernameAvailable {
+		return nil, ErrRegisterExistingUsername
+	}
 }

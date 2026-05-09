@@ -75,3 +75,29 @@ func (r *UserRepository) FindPasswordAuthProviderByUserID(ctx context.Context, u
 
 	return &provider, nil
 }
+
+type CredentialAvailability struct {
+	EmailAvailable    bool
+	UsernameAvailable bool
+}
+
+func (r *UserRepository) CheckCredentialAvailability(ctx context.Context, email string, username string) (*CredentialAvailability, error) {
+
+	var emailExists bool
+	var usernameExists bool
+
+	const availabilityCheckQuery = `
+		SELECT
+			EXISTS(SELECT 1 FROM users WHERE email = $1),
+			EXISTS(SELECT 1 FROM users WHERE username = $2)
+	`
+	err := r.db.QueryRow(ctx, availabilityCheckQuery, email, username).Scan(&emailExists, &usernameExists)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CredentialAvailability{
+		EmailAvailable:    !emailExists,
+		UsernameAvailable: !usernameExists,
+	}, nil
+}
