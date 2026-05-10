@@ -192,6 +192,7 @@ func validatePasswordStrength(password string) error {
 
 func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*RegisterResult, error) {
 	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
+	input.Username = strings.TrimSpace(input.Username)
 	if input.Email == "" {
 		return nil, ErrEmailRequired
 	}
@@ -221,4 +222,46 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*Regis
 	if err := validatePasswordStrength(input.Password); err != nil {
 		return nil, err
 	}
+
+	// write credentials
+	hashPassword, err := auth.HashPassword(input.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.users.CreatePasswordUser(ctx, repository.CreatePasswordUserInput{
+		Email:        input.Email,
+		Username:     input.Username,
+		PasswordHash: hashPassword,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrDuplicateEmail) {
+			return nil, ErrRegisterExistingEmail
+		}
+
+		if errors.Is(err, repository.ErrDuplicateUsername) {
+			return nil, ErrRegisterExistingUsername
+		}
+
+		return nil, err
+	}
+
+	session, err := s.createUserSession(ctx, userSessionInput{
+		User:       user,
+		ClientType: input.ClientType,
+		DeviceName: input.DeviceName,
+		UserAgent:  input.UserAgent,
+		IPAddress:  input.IPAddress,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &RegisterResult{
+		User:                  session.User,
+		AccessToken:           session.AccessToken,
+		RefreshToken:          session.RefreshToken,
+		AccessTokenExpiresAt:  session.AccessTokenExpiresAt,
+		RefreshTokenExpiresAt: session.RefreshTokenExpiresAt,
+	}, nil
 }

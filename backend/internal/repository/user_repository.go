@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/wardhana-org/ekstra/backend/internal/models"
 )
@@ -81,8 +82,13 @@ type CredentialAvailability struct {
 	UsernameAvailable bool
 }
 
-func (r *UserRepository) CheckCredentialAvailability(ctx context.Context, email string, username string) (*CredentialAvailability, error) {
+type CreatePasswordUserInput struct {
+	Email        string
+	Username     string
+	PasswordHash string
+}
 
+func (r *UserRepository) CheckCredentialAvailability(ctx context.Context, email string, username string) (*CredentialAvailability, error) {
 	var emailExists bool
 	var usernameExists bool
 
@@ -100,4 +106,63 @@ func (r *UserRepository) CheckCredentialAvailability(ctx context.Context, email 
 		EmailAvailable:    !emailExists,
 		UsernameAvailable: !usernameExists,
 	}, nil
+}
+
+func (r *UserRepository) CreatePasswordUser(ctx context.Context, input CreatePasswordUserInput) (*models.User, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	const userQuery = `
+		INSERT INTO users (email, username)
+		VALUES ($1, $2)
+		RETURNING id, email, username, status, created_at, updated_at
+	`
+
+	var user models.User
+
+	err = tx.QueryRow(ctx, userQuery, input.Email, input.Username).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Status,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, mapUserConstraintError(err)
+	}
+
+	const authProviderQuery = `
+		INSERT INTO user_auth_providers (user_id, provider, password_hash)
+		VALUES ($1, 'password', $2)
+	`
+
+	if _, err = tx.Exec(ctx, authProviderQuery, user.ID, input.PasswordHash); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func mapUserConstraintError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return err
+	}
+
+	switch pgErr.ConstraintName {
+	case "users_email_key":
+		return ErrDuplicateEmail
+	case "users_username_key":
+		return ErrDuplicateUsername
+	default:
+		return err
+	}
 }

@@ -162,6 +162,7 @@ type RegisterRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
+
 type RegisterResponse struct {
 	User UserResponse `json:"user"`
 }
@@ -176,5 +177,50 @@ func (h *WebAuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Register(c.Request.Context())
+	userAgent := optionalString(c.GetHeader("User-Agent"))
+	clientIP := optionalString(c.ClientIP())
+
+	result, err := h.authService.Register(
+		c.Request.Context(),
+		services.RegisterInput{
+			Email:      req.Email,
+			Username:   req.Username,
+			Password:   req.Password,
+			ClientType: "web",
+			UserAgent:  userAgent,
+			IPAddress:  clientIP,
+		},
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrRegisterExistingEmail) ||
+			errors.Is(err, services.ErrRegisterExistingUsername) {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		if errors.Is(err, services.ErrEmailRequired) ||
+			errors.Is(err, services.ErrUsernameRequired) ||
+			errors.Is(err, services.ErrPasswordRequired) ||
+			errors.Is(err, services.ErrPasswordTooShort) ||
+			errors.Is(err, services.ErrPasswordTooLong) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	h.setAuthCookie(c, h.cookies.AccessTokenName, result.AccessToken, result.AccessTokenExpiresAt)
+	h.setAuthCookie(c, h.cookies.RefreshTokenName, result.RefreshToken, result.RefreshTokenExpiresAt)
+
+	c.JSON(http.StatusCreated, RegisterResponse{
+		User: toUserResponse(result.User),
+	})
 }

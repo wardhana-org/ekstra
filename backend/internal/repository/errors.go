@@ -2,4 +2,8 @@ package repository
 
 import "errors"
 
-var ErrNotFound = errors.New("record not found")
+var (
+	ErrDuplicateEmail    = errors.New("email already exists")
+	ErrDuplicateUsername = errors.New("username already exists")
+	ErrNotFound          = errors.New("record not found")
+)
