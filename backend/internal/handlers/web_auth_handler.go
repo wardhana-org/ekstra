@@ -62,6 +62,10 @@ type LoginResponse struct {
 	User UserResponse `json:"user"`
 }
 
+type MeResponse struct {
+	User UserResponse `json:"user"`
+}
+
 type UserResponse struct {
 	ID       int64  `json:"id"`
 	Email    string `json:"email"`
@@ -138,6 +142,63 @@ func (h *WebAuthHandler) setAuthCookie(c *gin.Context, name string, value string
 		Secure:   h.cookies.Secure,
 		SameSite: h.cookies.SameSite,
 	})
+}
+
+func (h *WebAuthHandler) clearAuthCookie(c *gin.Context, name string) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.cookies.Secure,
+		SameSite: h.cookies.SameSite,
+	})
+}
+
+func (h *WebAuthHandler) Me(c *gin.Context) {
+	accessToken, err := c.Cookie(h.cookies.AccessTokenName)
+	if err != nil || accessToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthenticated",
+		})
+		return
+	}
+
+	user, err := h.authService.AuthenticateAccessToken(c.Request.Context(), accessToken)
+	if err != nil {
+		if errors.Is(err, services.ErrUnauthenticated) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthenticated",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, MeResponse{
+		User: toUserResponse(user),
+	})
+}
+
+func (h *WebAuthHandler) Logout(c *gin.Context) {
+	refreshToken, _ := c.Cookie(h.cookies.RefreshTokenName)
+	if err := h.authService.Logout(c.Request.Context(), refreshToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	h.clearAuthCookie(c, h.cookies.AccessTokenName)
+	h.clearAuthCookie(c, h.cookies.RefreshTokenName)
+
+	c.Status(http.StatusNoContent)
 }
 
 func toUserResponse(user *models.User) UserResponse {

@@ -160,6 +160,42 @@ func (s *AuthService) createUserSession(ctx context.Context, input userSessionIn
 	}, nil
 }
 
+func (s *AuthService) AuthenticateAccessToken(ctx context.Context, rawToken string) (*models.User, error) {
+	rawToken = strings.TrimSpace(rawToken)
+	if rawToken == "" {
+		return nil, ErrUnauthenticated
+	}
+
+	user, err := s.sessions.FindUserByAccessTokenHash(ctx, auth.HashToken(rawToken), time.Now().UTC())
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrUnauthenticated
+		}
+
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error {
+	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
+	if rawRefreshToken == "" {
+		return nil
+	}
+
+	err := s.sessions.RevokeSessionByRefreshTokenHash(ctx, auth.HashToken(rawRefreshToken), time.Now().UTC())
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 type RegisterInput struct {
 	Email      string
 	Username   string

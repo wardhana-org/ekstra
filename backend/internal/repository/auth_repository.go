@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/wardhana-org/ekstra/backend/internal/models"
 )
@@ -128,4 +130,93 @@ func (r *AuthRepository) CreateSessionWithTokens(ctx context.Context, input Crea
 	}
 
 	return &session, tokens, nil
+}
+
+func (r *AuthRepository) FindUserByAccessTokenHash(ctx context.Context, tokenHash string, now time.Time) (*models.User, error) {
+	const query = `
+		SELECT u.id, u.email, u.username, u.status, u.created_at, u.updated_at
+		FROM auth_tokens AS t
+		JOIN auth_sessions AS s ON s.id = t.session_id
+		JOIN users AS u ON u.id = s.user_id
+		WHERE t.token_hash = $1
+			AND t.token_type = 'access'
+			AND t.expires_at > $2
+			AND t.revoked_at IS NULL
+			AND s.expires_at > $2
+			AND s.revoked_at IS NULL
+	`
+
+	var user models.User
+
+	err := r.db.QueryRow(ctx, query, tokenHash, now).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Status,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *AuthRepository) RevokeSessionByRefreshTokenHash(ctx context.Context, tokenHash string, revokedAt time.Time) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const sessionQuery = `
+		SELECT session_id
+		FROM auth_tokens
+		WHERE token_hash = $1
+			AND token_type = 'refresh'
+	`
+
+	var sessionID int64
+
+	err = tx.QueryRow(ctx, sessionQuery, tokenHash).Scan(&sessionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+
+		return err
+	}
+
+	const revokeSessionQuery = `
+		UPDATE auth_sessions
+		SET revoked_at = $2
+		WHERE id = $1
+			AND revoked_at IS NULL
+	`
+
+	if _, err = tx.Exec(ctx, revokeSessionQuery, sessionID, revokedAt); err != nil {
+		return err
+	}
+
+	const revokeTokensQuery = `
+		UPDATE auth_tokens
+		SET revoked_at = $2
+		WHERE session_id = $1
+			AND revoked_at IS NULL
+	`
+
+	if _, err = tx.Exec(ctx, revokeTokensQuery, sessionID, revokedAt); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
