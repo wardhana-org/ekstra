@@ -61,6 +61,13 @@ type userSessionInput struct {
 	IPAddress  *string
 }
 
+type RefreshResult struct {
+	AccessToken           string
+	RefreshToken          string
+	AccessTokenExpiresAt  time.Time
+	RefreshTokenExpiresAt time.Time
+}
+
 func (s *AuthService) LoginWithPassword(ctx context.Context, input PasswordLoginInput) (*LoginResult, error) {
 	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
 	if input.Email == "" {
@@ -194,6 +201,50 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 	}
 
 	return nil
+}
+
+func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*RefreshResult, error) {
+	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
+	if rawRefreshToken == "" {
+		return nil, ErrUnauthenticated
+	}
+
+	accessToken, err := auth.GenerateRawToken()
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := auth.GenerateRawToken()
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	accessTokenExpiresAt := now.Add(accessTokenTTL)
+	refreshTokenExpiresAt := now.Add(refreshTokenTTL)
+
+	err = s.sessions.RotateRefreshToken(ctx, repository.RotateRefreshTokenInput{
+		RefreshTokenHash:      auth.HashToken(rawRefreshToken),
+		NewAccessTokenHash:    auth.HashToken(accessToken),
+		NewRefreshTokenHash:   auth.HashToken(refreshToken),
+		AccessTokenExpiresAt:  accessTokenExpiresAt,
+		RefreshTokenExpiresAt: refreshTokenExpiresAt,
+		RotatedAt:             now,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrUnauthenticated
+		}
+
+		return nil, err
+	}
+
+	return &RefreshResult{
+		AccessToken:           accessToken,
+		RefreshToken:          refreshToken,
+		AccessTokenExpiresAt:  accessTokenExpiresAt,
+		RefreshTokenExpiresAt: refreshTokenExpiresAt,
+	}, nil
 }
 
 type RegisterInput struct {

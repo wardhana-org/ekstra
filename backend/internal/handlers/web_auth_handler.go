@@ -201,6 +201,40 @@ func (h *WebAuthHandler) Logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *WebAuthHandler) Refresh(c *gin.Context) {
+	refreshToken, err := c.Cookie(h.cookies.RefreshTokenName)
+	if err != nil || refreshToken == "" {
+		h.clearAuthCookie(c, h.cookies.AccessTokenName)
+		h.clearAuthCookie(c, h.cookies.RefreshTokenName)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthenticated",
+		})
+		return
+	}
+
+	result, err := h.authService.Refresh(c.Request.Context(), refreshToken)
+	if err != nil {
+		if errors.Is(err, services.ErrUnauthenticated) {
+			h.clearAuthCookie(c, h.cookies.AccessTokenName)
+			h.clearAuthCookie(c, h.cookies.RefreshTokenName)
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthenticated",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
+		return
+	}
+
+	h.setAuthCookie(c, h.cookies.AccessTokenName, result.AccessToken, result.AccessTokenExpiresAt)
+	h.setAuthCookie(c, h.cookies.RefreshTokenName, result.RefreshToken, result.RefreshTokenExpiresAt)
+
+	c.Status(http.StatusNoContent)
+}
+
 func toUserResponse(user *models.User) UserResponse {
 	return UserResponse{
 		ID:       user.ID,

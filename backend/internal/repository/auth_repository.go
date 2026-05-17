@@ -40,6 +40,15 @@ type CreateSessionWithTokensInput struct {
 	Tokens  []CreateTokenInput
 }
 
+type RotateRefreshTokenInput struct {
+	RefreshTokenHash      string
+	NewAccessTokenHash    string
+	NewRefreshTokenHash   string
+	AccessTokenExpiresAt  time.Time
+	RefreshTokenExpiresAt time.Time
+	RotatedAt             time.Time
+}
+
 func (r *AuthRepository) CreateSessionWithTokens(ctx context.Context, input CreateSessionWithTokensInput) (*models.AuthSession, []models.AuthToken, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -211,6 +220,87 @@ func (r *AuthRepository) RevokeSessionByRefreshTokenHash(ctx context.Context, to
 	`
 
 	if _, err = tx.Exec(ctx, revokeTokensQuery, sessionID, revokedAt); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *AuthRepository) RotateRefreshToken(ctx context.Context, input RotateRefreshTokenInput) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const sessionQuery = `
+		SELECT t.id, s.id
+		FROM auth_tokens AS t
+		JOIN auth_sessions AS s ON s.id = t.session_id
+		WHERE t.token_hash = $1
+			AND t.token_type = 'refresh'
+			AND t.expires_at > $2
+			AND t.revoked_at IS NULL
+			AND s.expires_at > $2
+			AND s.revoked_at IS NULL
+		FOR UPDATE OF t, s
+	`
+
+	var refreshTokenID int64
+	var sessionID int64
+
+	err = tx.QueryRow(ctx, sessionQuery, input.RefreshTokenHash, input.RotatedAt).Scan(
+		&refreshTokenID,
+		&sessionID,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+
+		return err
+	}
+
+	const revokeRefreshTokenQuery = `
+		UPDATE auth_tokens
+		SET revoked_at = $2
+		WHERE id = $1
+	`
+
+	if _, err = tx.Exec(ctx, revokeRefreshTokenQuery, refreshTokenID, input.RotatedAt); err != nil {
+		return err
+	}
+
+	const updateSessionQuery = `
+		UPDATE auth_sessions
+		SET last_seen_at = $2,
+			expires_at = $3
+		WHERE id = $1
+	`
+
+	if _, err = tx.Exec(ctx, updateSessionQuery, sessionID, input.RotatedAt, input.RefreshTokenExpiresAt); err != nil {
+		return err
+	}
+
+	const tokenQuery = `
+		INSERT INTO auth_tokens (
+			session_id,
+			token_hash,
+			token_type,
+			expires_at
+		)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	if _, err = tx.Exec(ctx, tokenQuery, sessionID, input.NewAccessTokenHash, "access", input.AccessTokenExpiresAt); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(ctx, tokenQuery, sessionID, input.NewRefreshTokenHash, "refresh", input.RefreshTokenExpiresAt); err != nil {
 		return err
 	}
 

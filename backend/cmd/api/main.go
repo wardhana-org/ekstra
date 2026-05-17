@@ -50,6 +50,7 @@ func main() {
 	router.POST("/auth/login", webAuthHandler.Login)
 	router.POST("/auth/register", webAuthHandler.Register)
 	router.GET("/auth/me", webAuthHandler.Me)
+	router.POST("/auth/refresh", webAuthHandler.Refresh)
 	router.POST("/auth/logout", webAuthHandler.Logout)
 
 	if err := router.Run(":" + cfg.Port); err != nil {
