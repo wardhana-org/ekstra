@@ -201,6 +201,18 @@ func (r *AuthRepository) RevokeSessionByRefreshTokenHash(ctx context.Context, to
 		return err
 	}
 
+	if err = revokeSessionTokens(ctx, tx, sessionID, revokedAt); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func revokeSessionTokens(ctx context.Context, tx pgx.Tx, sessionID int64, revokedAt time.Time) error {
 	const revokeSessionQuery = `
 		UPDATE auth_sessions
 		SET revoked_at = $2
@@ -208,7 +220,7 @@ func (r *AuthRepository) RevokeSessionByRefreshTokenHash(ctx context.Context, to
 			AND revoked_at IS NULL
 	`
 
-	if _, err = tx.Exec(ctx, revokeSessionQuery, sessionID, revokedAt); err != nil {
+	if _, err := tx.Exec(ctx, revokeSessionQuery, sessionID, revokedAt); err != nil {
 		return err
 	}
 
@@ -219,11 +231,7 @@ func (r *AuthRepository) RevokeSessionByRefreshTokenHash(ctx context.Context, to
 			AND revoked_at IS NULL
 	`
 
-	if _, err = tx.Exec(ctx, revokeTokensQuery, sessionID, revokedAt); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
+	if _, err := tx.Exec(ctx, revokeTokensQuery, sessionID, revokedAt); err != nil {
 		return err
 	}
 
@@ -259,6 +267,18 @@ func (r *AuthRepository) RotateRefreshToken(ctx context.Context, input RotateRef
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			reused, err := revokeSessionForReusedRefreshToken(ctx, tx, input.RefreshTokenHash, input.RotatedAt)
+			if err != nil {
+				return err
+			}
+			if reused {
+				if err := tx.Commit(ctx); err != nil {
+					return err
+				}
+
+				return ErrRefreshTokenReused
+			}
+
 			return ErrNotFound
 		}
 
@@ -309,4 +329,44 @@ func (r *AuthRepository) RotateRefreshToken(ctx context.Context, input RotateRef
 	}
 
 	return nil
+}
+
+func revokeSessionForReusedRefreshToken(ctx context.Context, tx pgx.Tx, tokenHash string, now time.Time) (bool, error) {
+	const query = `
+		SELECT t.session_id, t.revoked_at, s.expires_at, s.revoked_at
+		FROM auth_tokens AS t
+		JOIN auth_sessions AS s ON s.id = t.session_id
+		WHERE t.token_hash = $1
+			AND t.token_type = 'refresh'
+		FOR UPDATE OF t, s
+	`
+
+	var sessionID int64
+	var tokenRevokedAt *time.Time
+	var sessionExpiresAt time.Time
+	var sessionRevokedAt *time.Time
+
+	err := tx.QueryRow(ctx, query, tokenHash).Scan(
+		&sessionID,
+		&tokenRevokedAt,
+		&sessionExpiresAt,
+		&sessionRevokedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	if tokenRevokedAt == nil || sessionRevokedAt != nil || !sessionExpiresAt.After(now) {
+		return false, nil
+	}
+
+	if err := revokeSessionTokens(ctx, tx, sessionID, now); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

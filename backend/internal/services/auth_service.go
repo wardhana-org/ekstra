@@ -232,7 +232,8 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Ref
 		RotatedAt:             now,
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repository.ErrNotFound) ||
+			errors.Is(err, repository.ErrRefreshTokenReused) {
 			return nil, ErrUnauthenticated
 		}
 
