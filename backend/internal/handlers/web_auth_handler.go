@@ -77,14 +77,11 @@ func (h *WebAuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request",
-		})
+		writeInvalidRequest(c)
 		return
 	}
 
-	userAgent := optionalString(c.GetHeader("User-Agent"))
-	clientIP := optionalString(c.ClientIP())
+	userAgent, clientIP := requestMetadata(c)
 
 	result, err := h.authService.LoginWithPassword(
 		c.Request.Context(),
@@ -98,32 +95,30 @@ func (h *WebAuthHandler) Login(c *gin.Context) {
 	)
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid credentials",
-			})
+			writeError(c, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
 
 		if errors.Is(err, services.ErrEmailRequired) ||
 			errors.Is(err, services.ErrPasswordRequired) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+			writeError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
+		writeInternalServerError(c)
 		return
 	}
 
-	h.setAuthCookie(c, h.cookies.AccessTokenName, result.AccessToken, result.AccessTokenExpiresAt)
-	h.setAuthCookie(c, h.cookies.RefreshTokenName, result.RefreshToken, result.RefreshTokenExpiresAt)
+	h.setAuthCookies(c, result.AccessToken, result.AccessTokenExpiresAt, result.RefreshToken, result.RefreshTokenExpiresAt)
 
 	c.JSON(http.StatusOK, LoginResponse{
 		User: toUserResponse(result.User),
 	})
+}
+
+func (h *WebAuthHandler) setAuthCookies(c *gin.Context, accessToken string, accessExpiresAt time.Time, refreshToken string, refreshExpiresAt time.Time) {
+	h.setAuthCookie(c, h.cookies.AccessTokenName, accessToken, accessExpiresAt)
+	h.setAuthCookie(c, h.cookies.RefreshTokenName, refreshToken, refreshExpiresAt)
 }
 
 func (h *WebAuthHandler) setAuthCookie(c *gin.Context, name string, value string, expiresAt time.Time) {
@@ -144,6 +139,11 @@ func (h *WebAuthHandler) setAuthCookie(c *gin.Context, name string, value string
 	})
 }
 
+func (h *WebAuthHandler) clearAuthCookies(c *gin.Context) {
+	h.clearAuthCookie(c, h.cookies.AccessTokenName)
+	h.clearAuthCookie(c, h.cookies.RefreshTokenName)
+}
+
 func (h *WebAuthHandler) clearAuthCookie(c *gin.Context, name string) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     name,
@@ -160,24 +160,18 @@ func (h *WebAuthHandler) clearAuthCookie(c *gin.Context, name string) {
 func (h *WebAuthHandler) Me(c *gin.Context) {
 	accessToken, err := c.Cookie(h.cookies.AccessTokenName)
 	if err != nil || accessToken == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthenticated",
-		})
+		writeUnauthenticated(c)
 		return
 	}
 
 	user, err := h.authService.AuthenticateAccessToken(c.Request.Context(), accessToken)
 	if err != nil {
 		if errors.Is(err, services.ErrUnauthenticated) {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthenticated",
-			})
+			writeUnauthenticated(c)
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
+		writeInternalServerError(c)
 		return
 	}
 
@@ -189,14 +183,11 @@ func (h *WebAuthHandler) Me(c *gin.Context) {
 func (h *WebAuthHandler) Logout(c *gin.Context) {
 	refreshToken, _ := c.Cookie(h.cookies.RefreshTokenName)
 	if err := h.authService.Logout(c.Request.Context(), refreshToken); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
+		writeInternalServerError(c)
 		return
 	}
 
-	h.clearAuthCookie(c, h.cookies.AccessTokenName)
-	h.clearAuthCookie(c, h.cookies.RefreshTokenName)
+	h.clearAuthCookies(c)
 
 	c.Status(http.StatusNoContent)
 }
@@ -204,16 +195,12 @@ func (h *WebAuthHandler) Logout(c *gin.Context) {
 func (h *WebAuthHandler) Refresh(c *gin.Context) {
 	refreshToken, err := c.Cookie(h.cookies.RefreshTokenName)
 	if err != nil || refreshToken == "" {
-		h.clearAuthCookie(c, h.cookies.AccessTokenName)
-		h.clearAuthCookie(c, h.cookies.RefreshTokenName)
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthenticated",
-		})
+		h.clearAuthCookies(c)
+		writeUnauthenticated(c)
 		return
 	}
 
-	userAgent := optionalString(c.GetHeader("User-Agent"))
-	clientIP := optionalString(c.ClientIP())
+	userAgent, clientIP := requestMetadata(c)
 
 	result, err := h.authService.Refresh(c.Request.Context(), services.RefreshInput{
 		RefreshToken: refreshToken,
@@ -224,29 +211,21 @@ func (h *WebAuthHandler) Refresh(c *gin.Context) {
 		if errors.Is(err, services.ErrRefreshTokenRace) {
 			// Another request already rotated this refresh token. The raw replacement
 			// token is not recoverable, so the client must verify auth state again.
-			c.JSON(http.StatusConflict, gin.H{
-				"error": "refresh conflict",
-			})
+			writeError(c, http.StatusConflict, "refresh conflict")
 			return
 		}
 
 		if errors.Is(err, services.ErrUnauthenticated) {
-			h.clearAuthCookie(c, h.cookies.AccessTokenName)
-			h.clearAuthCookie(c, h.cookies.RefreshTokenName)
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthenticated",
-			})
+			h.clearAuthCookies(c)
+			writeUnauthenticated(c)
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
+		writeInternalServerError(c)
 		return
 	}
 
-	h.setAuthCookie(c, h.cookies.AccessTokenName, result.AccessToken, result.AccessTokenExpiresAt)
-	h.setAuthCookie(c, h.cookies.RefreshTokenName, result.RefreshToken, result.RefreshTokenExpiresAt)
+	h.setAuthCookies(c, result.AccessToken, result.AccessTokenExpiresAt, result.RefreshToken, result.RefreshTokenExpiresAt)
 
 	c.Status(http.StatusNoContent)
 }
@@ -268,6 +247,10 @@ func optionalString(value string) *string {
 	return &value
 }
 
+func requestMetadata(c *gin.Context) (*string, *string) {
+	return optionalString(c.GetHeader("User-Agent")), optionalString(c.ClientIP())
+}
+
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Username string `json:"username" binding:"required"`
@@ -282,14 +265,11 @@ func (h *WebAuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request",
-		})
+		writeInvalidRequest(c)
 		return
 	}
 
-	userAgent := optionalString(c.GetHeader("User-Agent"))
-	clientIP := optionalString(c.ClientIP())
+	userAgent, clientIP := requestMetadata(c)
 
 	result, err := h.authService.Register(
 		c.Request.Context(),
@@ -305,9 +285,7 @@ func (h *WebAuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, services.ErrRegisterExistingEmail) ||
 			errors.Is(err, services.ErrRegisterExistingUsername) {
-			c.JSON(http.StatusConflict, gin.H{
-				"error": err.Error(),
-			})
+			writeError(c, http.StatusConflict, err.Error())
 			return
 		}
 
@@ -316,20 +294,15 @@ func (h *WebAuthHandler) Register(c *gin.Context) {
 			errors.Is(err, services.ErrPasswordRequired) ||
 			errors.Is(err, services.ErrPasswordTooShort) ||
 			errors.Is(err, services.ErrPasswordTooLong) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
+			writeError(c, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
+		writeInternalServerError(c)
 		return
 	}
 
-	h.setAuthCookie(c, h.cookies.AccessTokenName, result.AccessToken, result.AccessTokenExpiresAt)
-	h.setAuthCookie(c, h.cookies.RefreshTokenName, result.RefreshToken, result.RefreshTokenExpiresAt)
+	h.setAuthCookies(c, result.AccessToken, result.AccessTokenExpiresAt, result.RefreshToken, result.RefreshTokenExpiresAt)
 
 	c.JSON(http.StatusCreated, RegisterResponse{
 		User: toUserResponse(result.User),
