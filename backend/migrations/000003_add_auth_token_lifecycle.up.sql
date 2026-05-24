@@ -4,7 +4,7 @@ ALTER TABLE auth_sessions
     ADD COLUMN IF NOT EXISTS reuse_detected_at TIMESTAMPTZ;
 
 UPDATE auth_sessions
-SET absolute_expires_at = expires_at
+SET absolute_expires_at = created_at + INTERVAL '90 days'
 WHERE absolute_expires_at IS NULL;
 
 ALTER TABLE auth_sessions
