@@ -20,6 +20,9 @@ const (
 	accessTokenTTL  = 15 * time.Minute
 	refreshTokenTTL = 30 * 24 * time.Hour
 
+	absoluteSessionTTL      = 90 * 24 * time.Hour
+	refreshReuseGracePeriod = 5 * time.Second
+
 	minPasswordLength = 12
 	maxPasswordBytes  = 1024
 )
@@ -66,6 +69,12 @@ type RefreshResult struct {
 	RefreshToken          string
 	AccessTokenExpiresAt  time.Time
 	RefreshTokenExpiresAt time.Time
+}
+
+type RefreshInput struct {
+	RefreshToken string
+	UserAgent    *string
+	IPAddress    *string
 }
 
 func (s *AuthService) LoginWithPassword(ctx context.Context, input PasswordLoginInput) (*LoginResult, error) {
@@ -127,6 +136,7 @@ func (s *AuthService) createUserSession(ctx context.Context, input userSessionIn
 	now := time.Now().UTC()
 	accessTokenExpiresAt := now.Add(accessTokenTTL)
 	refreshTokenExpiresAt := now.Add(refreshTokenTTL)
+	absoluteSessionExpiresAt := now.Add(absoluteSessionTTL)
 	clientType := strings.TrimSpace(input.ClientType)
 	if clientType == "" {
 		clientType = defaultClientType
@@ -134,12 +144,13 @@ func (s *AuthService) createUserSession(ctx context.Context, input userSessionIn
 
 	_, _, err = s.sessions.CreateSessionWithTokens(ctx, repository.CreateSessionWithTokensInput{
 		Session: repository.CreateSessionInput{
-			UserID:     input.User.ID,
-			ClientType: clientType,
-			DeviceName: input.DeviceName,
-			UserAgent:  input.UserAgent,
-			IPAddress:  input.IPAddress,
-			ExpiresAt:  refreshTokenExpiresAt,
+			UserID:            input.User.ID,
+			ClientType:        clientType,
+			DeviceName:        input.DeviceName,
+			UserAgent:         input.UserAgent,
+			IPAddress:         input.IPAddress,
+			ExpiresAt:         refreshTokenExpiresAt,
+			AbsoluteExpiresAt: absoluteSessionExpiresAt,
 		},
 		Tokens: []repository.CreateTokenInput{
 			{
@@ -148,9 +159,10 @@ func (s *AuthService) createUserSession(ctx context.Context, input userSessionIn
 				ExpiresAt: accessTokenExpiresAt,
 			},
 			{
-				TokenHash: auth.HashToken(refreshToken),
-				TokenType: tokenTypeRefresh,
-				ExpiresAt: refreshTokenExpiresAt,
+				TokenHash:  auth.HashToken(refreshToken),
+				TokenType:  tokenTypeRefresh,
+				ExpiresAt:  refreshTokenExpiresAt,
+				Generation: intPointer(1),
 			},
 		},
 	})
@@ -203,8 +215,8 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 	return nil
 }
 
-func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*RefreshResult, error) {
-	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
+func (s *AuthService) Refresh(ctx context.Context, input RefreshInput) (*RefreshResult, error) {
+	rawRefreshToken := strings.TrimSpace(input.RefreshToken)
 	if rawRefreshToken == "" {
 		return nil, ErrUnauthenticated
 	}
@@ -223,15 +235,22 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Ref
 	accessTokenExpiresAt := now.Add(accessTokenTTL)
 	refreshTokenExpiresAt := now.Add(refreshTokenTTL)
 
-	err = s.sessions.RotateRefreshToken(ctx, repository.RotateRefreshTokenInput{
+	rotation, err := s.sessions.RotateRefreshToken(ctx, repository.RotateRefreshTokenInput{
 		RefreshTokenHash:      auth.HashToken(rawRefreshToken),
 		NewAccessTokenHash:    auth.HashToken(accessToken),
 		NewRefreshTokenHash:   auth.HashToken(refreshToken),
 		AccessTokenExpiresAt:  accessTokenExpiresAt,
 		RefreshTokenExpiresAt: refreshTokenExpiresAt,
 		RotatedAt:             now,
+		ReuseGracePeriod:      refreshReuseGracePeriod,
+		UserAgent:             input.UserAgent,
+		IPAddress:             input.IPAddress,
 	})
 	if err != nil {
+		if errors.Is(err, repository.ErrRefreshTokenRace) {
+			return nil, ErrRefreshTokenRace
+		}
+
 		if errors.Is(err, repository.ErrNotFound) ||
 			errors.Is(err, repository.ErrRefreshTokenReused) {
 			return nil, ErrUnauthenticated
@@ -243,9 +262,13 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Ref
 	return &RefreshResult{
 		AccessToken:           accessToken,
 		RefreshToken:          refreshToken,
-		AccessTokenExpiresAt:  accessTokenExpiresAt,
-		RefreshTokenExpiresAt: refreshTokenExpiresAt,
+		AccessTokenExpiresAt:  rotation.AccessTokenExpiresAt,
+		RefreshTokenExpiresAt: rotation.RefreshTokenExpiresAt,
 	}, nil
+}
+
+func intPointer(value int) *int {
+	return &value
 }
 
 type RegisterInput struct {

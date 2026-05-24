@@ -9,6 +9,7 @@ var (
 	ErrPasswordTooLong          = errors.New("password is too long")
 	ErrInvalidCredentials       = errors.New("invalid credentials")
 	ErrUnauthenticated          = errors.New("unauthenticated")
+	ErrRefreshTokenRace         = errors.New("refresh token race")
 	ErrUsernameRequired         = errors.New("username is required")
 	ErrRegisterExistingEmail    = errors.New("email already registered")
 	ErrRegisterExistingUsername = errors.New("username already used")

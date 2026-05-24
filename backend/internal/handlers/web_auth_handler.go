@@ -212,8 +212,20 @@ func (h *WebAuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Refresh(c.Request.Context(), refreshToken)
+	userAgent := optionalString(c.GetHeader("User-Agent"))
+	clientIP := optionalString(c.ClientIP())
+
+	result, err := h.authService.Refresh(c.Request.Context(), services.RefreshInput{
+		RefreshToken: refreshToken,
+		UserAgent:    userAgent,
+		IPAddress:    clientIP,
+	})
 	if err != nil {
+		if errors.Is(err, services.ErrRefreshTokenRace) {
+			c.Status(http.StatusNoContent)
+			return
+		}
+
 		if errors.Is(err, services.ErrUnauthenticated) {
 			h.clearAuthCookie(c, h.cookies.AccessTokenName)
 			h.clearAuthCookie(c, h.cookies.RefreshTokenName)
