@@ -222,7 +222,11 @@ func (h *WebAuthHandler) Refresh(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, services.ErrRefreshTokenRace) {
-			c.Status(http.StatusNoContent)
+			// Another request already rotated this refresh token. The raw replacement
+			// token is not recoverable, so the client must verify auth state again.
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "refresh conflict",
+			})
 			return
 		}
 
