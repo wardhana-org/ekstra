@@ -21,9 +21,9 @@ func (s *AuthService) createUserSession(ctx context.Context, input userSessionIn
 	}
 
 	now := time.Now().UTC()
-	accessTokenExpiresAt := now.Add(accessTokenTTL)
-	refreshTokenExpiresAt := now.Add(refreshTokenTTL)
 	absoluteSessionExpiresAt := now.Add(absoluteSessionTTL)
+	accessTokenExpiresAt := minTime(now.Add(accessTokenTTL), absoluteSessionExpiresAt)
+	refreshTokenExpiresAt := minTime(now.Add(refreshTokenTTL), absoluteSessionExpiresAt)
 	clientType := strings.TrimSpace(input.ClientType)
 	if clientType == "" {
 		clientType = defaultClientType
@@ -68,4 +68,12 @@ func (s *AuthService) createUserSession(ctx context.Context, input userSessionIn
 
 func intPointer(value int) *int {
 	return &value
+}
+
+func minTime(a time.Time, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+
+	return b
 }
