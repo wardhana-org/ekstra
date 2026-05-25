@@ -18,6 +18,7 @@ const (
 type AuthCookieConfig struct {
 	AccessTokenName  string
 	RefreshTokenName string
+	Domain           string
 	Secure           bool
 	SameSite         http.SameSite
 }
@@ -131,6 +132,7 @@ func (h *WebAuthHandler) setAuthCookie(c *gin.Context, name string, value string
 		Name:     name,
 		Value:    value,
 		Path:     "/",
+		Domain:   h.cookies.Domain,
 		Expires:  expiresAt,
 		MaxAge:   maxAge,
 		HttpOnly: true,
@@ -149,6 +151,7 @@ func (h *WebAuthHandler) clearAuthCookie(c *gin.Context, name string) {
 		Name:     name,
 		Value:    "",
 		Path:     "/",
+		Domain:   h.cookies.Domain,
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,

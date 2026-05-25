@@ -28,11 +28,15 @@ func main() {
 
 	// config
 	authCookieConfig := handlers.DefaultAuthCookieConfig()
-	authCookieConfig.Secure = cfg.AppEnv == "production"
+	authCookieConfig.Domain = cfg.AuthCookieDomain
+	authCookieConfig.Secure = cfg.AuthCookieSecure
+	authCookieConfig.SameSite = cfg.AuthCookieSameSite
 
 	//router init
 	router := gin.Default()
-	router.SetTrustedProxies(nil)
+	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatal("failed to configure trusted proxies: ", err)
+	}
 
 	// create repositories
 	userRepository := repository.NewUserRepository(db)
