@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+*.log
+*.out
+*.test
+*.exe
+bin/
+build/
+dist/
+coverage.out
+coverage.html
+tmp/

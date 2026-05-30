@@ -28,6 +28,14 @@ coverage.html
 # Logs
 *.log
 
+# Local Docker compose files
+docker-compose.local.yml
+docker-compose.local.dev.yml
+docker-compose.local.build.yml
+docker-compose.prod.yml
+!docker-compose.local.dev.example.yml
+!docker-compose.local.build.example.yml
+
 # Local reference projects
 api_sample/
 fullstack_sample/
