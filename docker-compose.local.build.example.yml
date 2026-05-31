@@ -74,6 +74,26 @@ services:
     networks:
       - ekstra
 
+  migrate:
+    image: migrate/migrate:v4.18.3
+    profiles:
+      - tools
+    volumes:
+      - ./backend/migrations:/migrations:ro
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://postgres:postgres@db:5432/ekstra_database?sslmode=disable",
+        "up",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ekstra
+
 networks:
   ekstra:
 
