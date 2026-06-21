@@ -1,7 +1,5 @@
+import HomePage from "@/features/home/components/home-page";
+
 export default function Home() {
-  return (
-    <main>
-      <h1>Ekstra</h1>
-    </main>
-  );
+    return <HomePage />
 }
