@@ -24,6 +24,9 @@ export default function HeroSection() {
            </div>
            <div className={styles.heroContent}>
                 <p>test</p>
+                <div className={styles.modeContainer}>
+                    <span>test</span>
+                </div>
            </div>
        </section>
     )
